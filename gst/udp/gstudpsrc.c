@@ -161,6 +161,14 @@ enum
   PROP_LOOP
 };
 
+/* lunker:: signals*/
+enum
+{
+  SIGNAL_FIRST_RECEIVED,
+
+  LAST_SIGNAL
+};
+
 static void gst_udpsrc_uri_handler_init (gpointer g_iface, gpointer iface_data);
 
 static GstCaps *gst_udpsrc_getcaps (GstBaseSrc * src, GstCaps * filter);
@@ -179,6 +187,8 @@ static void gst_udpsrc_get_property (GObject * object, guint prop_id,
 
 static GstStateChangeReturn gst_udpsrc_change_state (GstElement * element,
     GstStateChange transition);
+
+static guint gst_udpsrc_signals[LAST_SIGNAL] = { -1 };
 
 #define gst_udpsrc_parent_class parent_class
 G_DEFINE_TYPE_WITH_CODE (GstUDPSrc, gst_udpsrc, GST_TYPE_PUSH_SRC,
@@ -274,6 +284,17 @@ gst_udpsrc_class_init (GstUDPSrcClass * klass)
           " FALSE = disable", UDP_DEFAULT_LOOP,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+
+  /* lunker:: signals */
+  gst_udpsrc_signals[SIGNAL_FIRST_RECEIVED] =
+      g_signal_new ("first-received", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      G_STRUCT_OFFSET (GstUDPSrcClass, first_received),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 2,
+      G_TYPE_STRING, G_TYPE_INT);
+
+
+  /* pad template */
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&src_template));
 
@@ -313,6 +334,9 @@ gst_udpsrc_init (GstUDPSrc * udpsrc)
   udpsrc->used_socket = UDP_DEFAULT_USED_SOCKET;
   udpsrc->reuse = UDP_DEFAULT_REUSE;
   udpsrc->loop = UDP_DEFAULT_LOOP;
+
+  /* lunker:: flag for first receive  */
+  udpsrc->isFirstReceived = TRUE;
 
   /* configure basesrc to be a live source */
   gst_base_src_set_live (GST_BASE_SRC (udpsrc), TRUE);
@@ -565,6 +589,36 @@ retry:
   res =
       g_socket_receive_message (udpsrc->used_socket, &saddr, udpsrc->vec, 2,
       NULL, NULL, &flags, udpsrc->cancellable, &err);
+
+  GST_DEBUG ("@@@ After g_socket_receive_message()");
+
+  if (udpsrc->isFirstReceived == TRUE) {
+    GST_DEBUG ("@@@ is first receive()");
+
+    GInetSocketAddress *senderAddr;
+    gchar *host;
+    gint port;
+
+    if (saddr != NULL) {
+      senderAddr = (GInetSocketAddress *) saddr;
+
+      host =
+          g_inet_address_to_string (g_inet_socket_address_get_address
+          (senderAddr));
+      port = g_inet_socket_address_get_port (senderAddr);
+
+      GST_DEBUG ("@@@ Sender Host : %s", host);
+      GST_DEBUG ("@@@ Sender Port : %d", port);
+
+      /* lunker:: fire first receive event    */
+      g_signal_emit (G_OBJECT (udpsrc),
+          gst_udpsrc_signals[SIGNAL_FIRST_RECEIVED], 0, host, port);
+      udpsrc->isFirstReceived = FALSE;
+    }
+  }
+
+
+
 
   if (G_UNLIKELY (res < 0)) {
     /* G_IO_ERROR_HOST_UNREACHABLE for a UDP socket means that a packet sent

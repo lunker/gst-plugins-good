@@ -62,6 +62,9 @@ struct _GstUDPSrc {
   gboolean   reuse;
   gboolean   loop;
 
+  /* lunker:: flag for first receive*/
+  gboolean isFirstReceived;
+
   /* stats */
   guint      max_size;
 
@@ -88,6 +91,9 @@ struct _GstUDPSrc {
 
 struct _GstUDPSrcClass {
   GstPushSrcClass parent_class;
+
+  /* signals */
+  void (*first_received) (GstElement *element, const gchar *host, gint port);
 };
 
 GType gst_udpsrc_get_type(void);

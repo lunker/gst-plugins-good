@@ -64,6 +64,8 @@ enum
   SIGNAL_CLEAR,
   SIGNAL_GET_STATS,
 
+  SIGNAL_NOTIFY_HOLEPUNCHING_INFO,
+
   /* signals */
   SIGNAL_CLIENT_ADDED,
   SIGNAL_CLIENT_REMOVED,
@@ -137,6 +139,10 @@ static void gst_multiudpsink_add_internal (GstMultiUDPSink * sink,
 static void gst_multiudpsink_clear_internal (GstMultiUDPSink * sink,
     gboolean lock);
 
+/* lunker:: */
+static void gst_multiudpsink_notify_holepunching_info (GstMultiUDPSink * sink,
+    const gchar * host, gint port);
+
 static guint gst_multiudpsink_signals[LAST_SIGNAL] = { 0 };
 
 #define gst_multiudpsink_parent_class parent_class
@@ -156,6 +162,13 @@ gst_multiudpsink_class_init (GstMultiUDPSinkClass * klass)
   gobject_class->set_property = gst_multiudpsink_set_property;
   gobject_class->get_property = gst_multiudpsink_get_property;
   gobject_class->finalize = gst_multiudpsink_finalize;
+
+  gst_multiudpsink_signals[SIGNAL_NOTIFY_HOLEPUNCHING_INFO] =
+      g_signal_new ("notify-holepunching-info", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      G_STRUCT_OFFSET (GstMultiUDPSinkClass, notify_holepunching_info),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 2,
+      G_TYPE_STRING, G_TYPE_INT);
 
   /**
    * GstMultiUDPSink::add:
@@ -369,8 +382,35 @@ gst_multiudpsink_class_init (GstMultiUDPSinkClass * klass)
   klass->remove = gst_multiudpsink_remove;
   klass->clear = gst_multiudpsink_clear;
   klass->get_stats = gst_multiudpsink_get_stats;
+  klass->notify_holepunching_info = gst_multiudpsink_notify_holepunching_info;
 
   GST_DEBUG_CATEGORY_INIT (multiudpsink_debug, "multiudpsink", 0, "UDP sink");
+}
+
+static void
+gst_multiudpsink_notify_holepunching_info (GstMultiUDPSink * sink,
+    const gchar * host, gint port)
+{
+  GList *find;
+  GstUDPClient *udpClient;
+  gchar *beforeHost;
+  gint beforePort;
+
+  GST_DEBUG ("### Get NOTIFY_HOLEPUNCHING_INFO!!! ");
+  GST_DEBUG ("### Get H-P Host : %s", host);
+  GST_DEBUG ("### Get H-P Port : %d", port);
+  find = g_list_first (sink->clients);
+
+  if (find != NULL) {
+    GST_DEBUG ("### GET Existed UDP Client");
+    udpClient = find->data;
+
+    gst_multiudpsink_remove (sink, udpClient->host, udpClient->port);
+    gst_multiudpsink_add (sink, host, port);
+
+  } else {
+    GST_DEBUG ("### find sink->clients :: NULL");
+  }
 }
 
 static void
@@ -677,12 +717,24 @@ gst_multiudpsink_send_messages (GstMultiUDPSink * sink, GSocket * socket,
     GstOutputMessage * messages, guint num_messages)
 {
   gboolean sent_max_size_warning = FALSE;
+  GInetSocketAddress *toAddr;
+  gchar *toHost;
+  gint toPort;
 
   while (num_messages > 0) {
     gchar astr[64] G_GNUC_UNUSED;
     GError *err = NULL;
     guint msg_size, skip, i;
     gint ret, err_idx;
+
+    toAddr = (GInetAddress *) (&messages[0])->address;
+
+    toHost =
+        g_inet_address_to_string (g_inet_socket_address_get_address (toAddr));
+    toPort = g_inet_socket_address_get_port (toAddr);
+
+    GST_DEBUG ("### gst_multiudpsink_send_messages :: to Host : %s", toHost);
+    GST_DEBUG ("### gst_multiudpsink_send_messages :: to Port : %d", toPort);
 
     ret = g_socket_send_messages (socket, messages, num_messages, 0,
         sink->cancellable, &err);
@@ -1668,6 +1720,7 @@ error:
 void
 gst_multiudpsink_add (GstMultiUDPSink * sink, const gchar * host, gint port)
 {
+  GST_DEBUG ("### gst_multiudpsink_add() :: %s, %d", host, port);
   gst_multiudpsink_add_internal (sink, host, port, TRUE);
 }
 
@@ -1679,6 +1732,8 @@ gst_multiudpsink_remove (GstMultiUDPSink * sink, const gchar * host, gint port)
   GstUDPClient udpclient;
   GstUDPClient *client;
   GTimeVal now;
+
+  GST_DEBUG ("### gst_multiudpsink_remove() :: %s, %d", host, port);
 
   udpclient.host = (gchar *) host;
   udpclient.port = port;

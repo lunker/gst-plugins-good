@@ -132,6 +132,8 @@ struct _GstMultiUDPSinkClass {
   void          (*remove)       (GstMultiUDPSink *sink, const gchar *host, gint port);
   void          (*clear)        (GstMultiUDPSink *sink);
   GstStructure* (*get_stats)    (GstMultiUDPSink *sink, const gchar *host, gint port);
+  
+  void          (*notify_holepunching_info)              (GstMultiUDPSink *sink, const gchar *host, gint port);
 
   /* signals */
   void          (*client_added) (GstElement *element, const gchar *host, gint port);
