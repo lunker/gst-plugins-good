@@ -165,7 +165,6 @@ enum
 enum
 {
   SIGNAL_FIRST_RECEIVED,
-
   LAST_SIGNAL
 };
 
