@@ -332,6 +332,14 @@ static void
 gst_udpsrc_notify_is_holepunched (GstUDPSrc * udpsrc, gboolean isHolepunched)
 {
   GST_DEBUG ("### gst_udpsrc_notify_is_holepunched()");
+  udpsrc->isHolepunched = isHolepunched;
+
+  if (udpsrc->isHolepunched == TRUE) {
+    GST_DEBUG ("### gst_udpsrc : holepunched success");
+  } else {
+    GST_DEBUG ("### gst_udpsrc : holepunched fail");
+  }
+
 }
 
 static void
