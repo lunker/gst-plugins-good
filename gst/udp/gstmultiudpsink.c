@@ -164,6 +164,7 @@ gst_multiudpsink_class_init (GstMultiUDPSinkClass * klass)
   gobject_class->get_property = gst_multiudpsink_get_property;
   gobject_class->finalize = gst_multiudpsink_finalize;
 
+  // received signals 
   gst_multiudpsink_signals[SIGNAL_NOTIFY_HOLEPUNCHING_INFO] =
       g_signal_new ("notify-holepunching-info", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -421,6 +422,7 @@ gst_multiudpsink_notify_holepunching_info (GstMultiUDPSink * sink,
     gst_multiudpsink_remove (sink, udpClient->host, udpClient->port);
     gst_multiudpsink_add (sink, host, port);
 
+    // generate signal to kms-elements 
     g_signal_emit (G_OBJECT (sink),
         gst_multiudpsink_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED], 0, TRUE);
     GST_DEBUG ("### Emit NOTIFY-IS-HOLEPUNCHED Signals");

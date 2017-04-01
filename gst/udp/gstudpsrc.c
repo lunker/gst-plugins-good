@@ -301,7 +301,7 @@ gst_udpsrc_class_init (GstUDPSrcClass * klass)
   /* lunker:: signals */
   /* signals :: udpsrc received */
   gst_udpsrc_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED] =
-      g_signal_new ("notify-is-holpunched", G_TYPE_FROM_CLASS (klass),
+      g_signal_new ("notify-is-holepunched", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       G_STRUCT_OFFSET (GstUDPSrcClass, notify_is_holepunched),
       NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
