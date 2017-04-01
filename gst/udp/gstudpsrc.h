@@ -63,7 +63,7 @@ struct _GstUDPSrc {
   gboolean   loop;
 
   /* lunker:: flag for first receive*/
-  gboolean isFirstReceived;
+  gboolean isHolepunched;
 
   /* stats */
   guint      max_size;
@@ -92,8 +92,12 @@ struct _GstUDPSrc {
 struct _GstUDPSrcClass {
   GstPushSrcClass parent_class;
 
-  /* signals */
+  /* generated signals */
   void (*first_received) (GstElement *element, const gchar *host, gint port);
+
+  /* received signal */
+  void (*notify_is_holepunched) (GstElement *element, gboolean isHolepunched);
+
 };
 
 GType gst_udpsrc_get_type(void);

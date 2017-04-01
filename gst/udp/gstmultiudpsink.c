@@ -66,9 +66,10 @@ enum
 
   SIGNAL_NOTIFY_HOLEPUNCHING_INFO,
 
-  /* signals */
+  /* generated signals */
   SIGNAL_CLIENT_ADDED,
   SIGNAL_CLIENT_REMOVED,
+  SIGNAL_NOTIFY_IS_HOLEPUNCHED,
 
   /* FILL ME */
   LAST_SIGNAL
@@ -234,6 +235,15 @@ gst_multiudpsink_class_init (GstMultiUDPSinkClass * klass)
       G_STRUCT_OFFSET (GstMultiUDPSinkClass, get_stats),
       NULL, NULL, g_cclosure_marshal_generic, GST_TYPE_STRUCTURE, 2,
       G_TYPE_STRING, G_TYPE_INT);
+
+  /*
+     lunker:: generate NOTIFY-IS-HOLEPUNCHED Signals.
+   */
+  gst_multiudpsink_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED] =
+      g_signal_new ("notify-is-holepunched", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstMultiUDPSinkClass, client_added),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
+
   /**
    * GstMultiUDPSink::client-added:
    * @gstmultiudpsink: the sink emitting the signal
@@ -399,7 +409,10 @@ gst_multiudpsink_notify_holepunching_info (GstMultiUDPSink * sink,
   GST_DEBUG ("### Get NOTIFY_HOLEPUNCHING_INFO!!! ");
   GST_DEBUG ("### Get H-P Host : %s", host);
   GST_DEBUG ("### Get H-P Port : %d", port);
+
   find = g_list_first (sink->clients);
+
+  /* lunker::TODO:: need lock mechanism */
 
   if (find != NULL) {
     GST_DEBUG ("### GET Existed UDP Client");
@@ -408,8 +421,15 @@ gst_multiudpsink_notify_holepunching_info (GstMultiUDPSink * sink,
     gst_multiudpsink_remove (sink, udpClient->host, udpClient->port);
     gst_multiudpsink_add (sink, host, port);
 
+    g_signal_emit (G_OBJECT (sink),
+        gst_multiudpsink_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED], 0, TRUE);
+    GST_DEBUG ("### Emit NOTIFY-IS-HOLEPUNCHED Signals");
+
   } else {
     GST_DEBUG ("### find sink->clients :: NULL");
+    g_signal_emit (G_OBJECT (sink),
+        gst_multiudpsink_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED], 0, FALSE);
+    GST_DEBUG ("### Emit NOTIFY-IS-HOLEPUNCHED Signals");
   }
 }
 
@@ -768,6 +788,7 @@ gst_multiudpsink_send_messages (GstMultiUDPSink * sink, GSocket * socket,
           sent_max_size_warning = FALSE;
         }
       } else {
+        GST_DEBUG ("### gst_multiudpsink_send error:: ");
         GST_ELEMENT_WARNING (sink, RESOURCE, WRITE,
             ("Error sending UDP packets"), ("client %s, reason: %s",
                 gst_udp_address_get_string (msg->address, astr, sizeof (astr)),
@@ -879,6 +900,8 @@ gst_multiudpsink_render_buffers (GstMultiUDPSink * sink, GstBuffer ** buffers,
   /* FIXME: how about some locking? (there wasn't any before either, but..) */
   sink->bytes_to_serve += size;
 
+  /* lunker:: Set Message Addresss as clients address. */
+  GST_DEBUG ("### num_addr : %d", num_addr);
   /* now copy the pre-filled num_buffer messages over to the next num_buffer
    * messages for the next client, where we also change the target adddress */
   for (i = 1; i < num_addr; ++i) {

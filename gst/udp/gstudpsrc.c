@@ -164,7 +164,8 @@ enum
 /* lunker:: signals*/
 enum
 {
-  SIGNAL_FIRST_RECEIVED,
+  SIGNAL_FIRST_RECEIVED,        // generated signal
+  SIGNAL_NOTIFY_IS_HOLEPUNCHED, // received signal
 
   LAST_SIGNAL
 };
@@ -187,6 +188,9 @@ static void gst_udpsrc_get_property (GObject * object, guint prop_id,
 
 static GstStateChangeReturn gst_udpsrc_change_state (GstElement * element,
     GstStateChange transition);
+static void gst_udpsrc_notify_is_holepunched (GstUDPSrc * udpsrc,
+    gboolean isHolepunched);
+
 
 static guint gst_udpsrc_signals[LAST_SIGNAL] = { -1 };
 
@@ -286,6 +290,7 @@ gst_udpsrc_class_init (GstUDPSrcClass * klass)
 
 
   /* lunker:: signals */
+  /* signals :: udpsrc generate */
   gst_udpsrc_signals[SIGNAL_FIRST_RECEIVED] =
       g_signal_new ("first-received", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -293,6 +298,13 @@ gst_udpsrc_class_init (GstUDPSrcClass * klass)
       NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 2,
       G_TYPE_STRING, G_TYPE_INT);
 
+  /* lunker:: signals */
+  /* signals :: udpsrc received */
+  gst_udpsrc_signals[SIGNAL_NOTIFY_IS_HOLEPUNCHED] =
+      g_signal_new ("notify-is-holpunched", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      G_STRUCT_OFFSET (GstUDPSrcClass, notify_is_holepunched),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
 
   /* pad template */
   gst_element_class_add_pad_template (gstelement_class,
@@ -312,6 +324,14 @@ gst_udpsrc_class_init (GstUDPSrcClass * klass)
   gstbasesrc_class->negotiate = gst_udpsrc_negotiate;
 
   gstpushsrc_class->create = gst_udpsrc_create;
+
+  klass->notify_is_holepunched = gst_udpsrc_notify_is_holepunched;
+}
+
+static void
+gst_udpsrc_notify_is_holepunched (GstUDPSrc * udpsrc, gboolean isHolepunched)
+{
+  GST_DEBUG ("### gst_udpsrc_notify_is_holepunched()");
 }
 
 static void
@@ -336,7 +356,7 @@ gst_udpsrc_init (GstUDPSrc * udpsrc)
   udpsrc->loop = UDP_DEFAULT_LOOP;
 
   /* lunker:: flag for first receive  */
-  udpsrc->isFirstReceived = TRUE;
+  udpsrc->isHolepunched = FALSE;
 
   /* configure basesrc to be a live source */
   gst_base_src_set_live (GST_BASE_SRC (udpsrc), TRUE);
@@ -590,10 +610,8 @@ retry:
       g_socket_receive_message (udpsrc->used_socket, &saddr, udpsrc->vec, 2,
       NULL, NULL, &flags, udpsrc->cancellable, &err);
 
-  GST_DEBUG ("@@@ After g_socket_receive_message()");
-
-  if (udpsrc->isFirstReceived == TRUE) {
-    GST_DEBUG ("@@@ is first receive()");
+  if (udpsrc->isHolepunched == FALSE) {
+    GST_DEBUG ("@@@ Holepunched NOT yet");
 
     GInetSocketAddress *senderAddr;
     gchar *host;
@@ -613,12 +631,9 @@ retry:
       /* lunker:: fire first receive event    */
       g_signal_emit (G_OBJECT (udpsrc),
           gst_udpsrc_signals[SIGNAL_FIRST_RECEIVED], 0, host, port);
-      udpsrc->isFirstReceived = FALSE;
+      // udpsrc->isHolepunched = FALSE;
     }
   }
-
-
-
 
   if (G_UNLIKELY (res < 0)) {
     /* G_IO_ERROR_HOST_UNREACHABLE for a UDP socket means that a packet sent
